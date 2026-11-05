@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>學士後中西醫及私醫英文歷屆單字趨勢分析 (PostMed English Trends)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PapaParse (用於解析 Google Sheet 匯出的 CSV) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .highlight-word {
+            background-color: rgba(234, 179, 8, 0.25);
+            color: #fef08a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            border-bottom: 2px solid #eab308;
+        }
+    </style>
+</head>
+<body class="h-full font-sans antialiased bg-slate-950 text-slate-100 flex flex-col min-h-screen">
+
+    <!-- 頂部導航欄 -->
+    <header class="sticky top-0 z-40 border-b border-slate-800 glass-panel">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid fa-chart-line"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400">
+                        PostMed English Trends
+                    </h1>
+                    <p class="text-xs text-slate-400">學士後中西醫 & 私醫聯招 英文高頻單字聲量與歷年考題上下文檢索器</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <button id="refreshDataBtn" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg border border-slate-700 transition flex items-center space-x-2">
+                    <i class="fa-solid fa-rotate text-indigo-400"></i>
+                    <span>同步 Google Sheet 資料</span>
+                </button>
+                <a href="https://docs.google.com/spreadsheets/d/1wmdw3pTM9egr-Vt3feE_bO32Yi60GktB_bwGX7_kKvw/edit?gid=1424705553#gid=1424705553" target="_blank" class="px-3 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition shadow-md shadow-emerald-600/20 flex items-center space-x-2">
+                    <i class="fa-solid fa-table"></i>
+                    <span>開啟 Google 試算表庫</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主內容區塊 -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- 搜尋與多字比較列 (Google Trends 樣式) -->
+        <section class="glass-panel rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
+                <div>
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-magnifying-glass text-indigo-400"></i>
+                        單字搜尋與歷年趨勢比較
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">直接連結您的 Google 試算表資料庫（可輸入多字比較歷年出現頻率曲線）</p>
+                </div>
+
+                <!-- 學校篩選選單 -->
+                <div class="flex items-center space-x-2 text-xs">
+                    <span class="text-slate-400">學校/考別篩選：</span>
+                    <select id="schoolFilter" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-indigo-500">
+                        <option value="ALL">全部類別 (中國醫/慈濟/義守/中興/私醫/高考...)</option>
+                        <option value="中國醫">中國醫藥大學</option>
+                        <option value="慈濟">慈濟大學</option>
+                        <option value="義守">義守大學</option>
+                        <option value="中興">中興大學</option>
+                        <option value="清大">清華大學</option>
+                        <option value="私醫">私醫聯招</option>
+                        <option value="高考">高考/統測</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 單字 Tag 輸入框 -->
+            <div class="flex flex-wrap items-center gap-2 bg-slate-950/80 border border-slate-800 rounded-xl p-3 focus-within:border-indigo-500 transition">
+                <div id="wordTagsContainer" class="flex flex-wrap gap-2"></div>
+
+                <div class="relative flex-1 min-w-[200px]">
+                    <input type="text" id="wordInput" placeholder="輸入英文單字 (如: detrimental, scrupulous, depress)..."
+                           class="w-full bg-transparent text-slate-100 placeholder-slate-500 text-sm focus:outline-none px-2 py-1">
+                    <div id="autocompleteDropdown" class="hidden absolute left-0 right-0 top-full mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto"></div>
+                </div>
+
+                <button id="addWordBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-lg transition shadow-md">
+                    <i class="fa-solid fa-plus me-1"></i> 加入比較
+                </button>
+            </div>
+
+            <!-- 熱門高頻單字預設按鈕 -->
+            <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                <span class="text-slate-500 font-medium"><i class="fa-solid fa-bolt text-yellow-400 me-1"></i>快捷試算表單字：</span>
+                <button class="preset-tag px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700/60 transition" data-word="detrimental">detrimental</button>
+                <button class="preset-tag px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700/60 transition" data-word="deprive">deprive</button>
+                <button class="preset-tag px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700/60 transition" data-word="detect">detect</button>
+                <button class="preset-tag px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700/60 transition" data-word="deviate">deviate</button>
+            </div>
+        </section>
+
+        <!-- 圖表與統計區塊 -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Google Trends 走勢圖 -->
+            <div class="lg:col-span-2 glass-panel rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-chart-area text-indigo-400"></i>
+                            歷年出現頻率趨勢圖
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">點擊走勢圖節點即可自動切換並調閱當年度試題與完整上下文</p>
+                    </div>
+                </div>
+
+                <div class="relative w-full h-[320px]">
+                    <canvas id="trendsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 各校命題分佈統計 -->
+            <div class="glass-panel rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                <div>
+                    <h3 class="text-base font-bold text-white flex items-center gap-2 mb-3">
+                        <i class="fa-solid fa-building-columns text-purple-400"></i>
+                        各校/考別命題分佈統計
+                    </h3>
+                    <div id="schoolStatsContainer" class="space-y-3"></div>
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-slate-800 text-xs text-slate-400 flex items-center justify-between">
+                    <span>Google Sheet 資料庫</span>
+                    <span id="activeWordCountDisplay" class="text-indigo-400 font-semibold">讀取中...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 考題上下文調閱區塊 -->
+        <section class="glass-panel rounded-2xl p-6 shadow-xl">
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-4 mb-6 gap-4">
+                <div>
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-file-lines text-emerald-400"></i>
+                        考題上下文與選項實例調閱器 (Context Viewer)
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-1">自動呈現試算表中該字在各校考題中的完整句型、題型與選項</p>
+                </div>
+
+                <div class="flex items-center space-x-3">
+                    <label for="contextWordSelect" class="text-xs text-slate-400">目前檢視單字：</label>
+                    <select id="contextWordSelect" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-xl px-4 py-2 font-semibold text-indigo-400 focus:outline-none"></select>
+                </div>
+            </div>
+
+            <div id="contextList" class="space-y-4"></div>
+        </section>
+
+    </main>
+
+    <!-- 腳本區域：直接讀取 Google Sheet 串接 API -->
+    <script>
+        // 設定您的 Google Sheet 公開 CSV 轉譯網址
+        // Sheet ID: 1wmdw3pTM9egr-Vt3feE_bO32Yi60GktB_bwGX7_kKvw, GID: 1424705553
+        const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS_SHEET_CSV_LINK/pub?gid=1424705553&single=true&output=csv";
+        
+        // 備用直連抓取網址 (Google Direct Export)
+        const DIRECT_CSV_URL = "https://docs.google.com/spreadsheets/d/1wmdw3pTM9egr-Vt3feE_bO32Yi60GktB_bwGX7_kKvw/gviz/tq?tqx=out:csv&gid=1424705553";
+
+        let POSTMED_DATABASE = [];
+        let ALL_UNIQUE_WORDS = [];
+        let activeWords = ["detrimental", "deprive"];
+        let selectedSchool = "ALL";
+        let trendsChart = null;
+
+        const COLOR_PALETTE = [
+            { border: '#818cf8', bg: 'rgba(129, 140, 248, 0.2)' },
+            { border: '#c084fc', bg: 'rgba(192, 132, 252, 0.2)' },
+            { border: '#f472b6', bg: 'rgba(244, 114, 182, 0.2)' },
+            { border: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)' },
+            { border: '#facc15', bg: 'rgba(250, 204, 21, 0.2)' },
+            { border: '#34d399', bg: 'rgba(52, 211, 153, 0.2)' }
+        ];
+
+        document.addEventListener("DOMContentLoaded", () => {
+            initChart();
+            setupEventListeners();
+            fetchGoogleSheetData();
+        });
+
+        // 讀取 Google Sheet 資料 (使用 PapaParse 解析)
+        function fetchGoogleSheetData() {
+            document.getElementById("activeWordCountDisplay").innerText = "從 Google Sheet 載入中...";
+            
+            Papa.parse(DIRECT_CSV_URL, {
+                download: true,
+                header: false,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    const rows = results.data;
+                    POSTMED_DATABASE = [];
+
+                    // 跳過標頭列 (Col A: 單字, Col B: 年份, Col C: 學校, Col D: 上下文)
+                    for (let i = 1; i < rows.length; i++) {
+                        const row = rows[i];
+                        if (row.length >= 4 && row[0]) {
+                            POSTMED_DATABASE.push({
+                                word: row[0].trim(),
+                                year: parseInt(row[1]) || 0,
+                                school: row[2] ? row[2].trim() : "其他",
+                                context: row[3] ? row[3].trim() : ""
+                            });
+                        }
+                    }
+
+                    // 生成獨一無二單字列表
+                    ALL_UNIQUE_WORDS = Array.from(new Set(POSTMED_DATABASE.map(item => item.word.toLowerCase()))).sort();
+                    
+                    renderWordTags();
+                    updateDashboard();
+                },
+                error: function(err) {
+                    console.error("Google Sheet 載入失敗:", err);
+                    document.getElementById("activeWordCountDisplay").innerText = "Sheet 載入失敗，請確認共用權限";
+                }
+            });
+        }
+
+        // 初始化 Chart.js
+        function initChart() {
+            const ctx = document.getElementById("trendsChart").getContext("2d");
+            trendsChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: '#94a3b8', font: { family: 'sans-serif', size: 12 } } },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleColor: '#f8fafc',
+                            bodyColor: '#cbd5e1',
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1,
+                            padding: 10
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8', font: { size: 11 } },
+                            title: { display: true, text: '學年度', color: '#64748b' }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8', stepSize: 1, precision: 0 },
+                            title: { display: true, text: '出現頻率 (次數)', color: '#64748b' },
+                            beginAtZero: true
+                        }
+                    },
+                    onClick: (e, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const selectedYear = trendsChart.data.labels[index];
+                            filterContextByYear(selectedYear);
+                        }
+                    }
+                }
+            });
+        }
+
+        function setupEventListeners() {
+            const wordInput = document.getElementById("wordInput");
+            const addWordBtn = document.getElementById("addWordBtn");
+            const schoolFilter = document.getElementById("schoolFilter");
+            const contextWordSelect = document.getElementById("contextWordSelect");
+
+            document.getElementById("refreshDataBtn").addEventListener("click", fetchGoogleSheetData);
+
+            addWordBtn.addEventListener("click", () => handleAddWord(wordInput.value));
+            wordInput.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") handleAddWord(wordInput.value);
+            });
+
+            schoolFilter.addEventListener("change", (e) => {
+                selectedSchool = e.target.value;
+                updateDashboard();
+            });
+
+            contextWordSelect.addEventListener("change", (e) => {
+                renderContextViewer(e.target.value);
+            });
+
+            document.querySelectorAll(".preset-tag").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const word = btn.getAttribute("data-word");
+                    if (!activeWords.includes(word)) {
+                        activeWords.push(word);
+                        renderWordTags();
+                        updateDashboard();
+                    }
+                });
+            });
+
+            // Autocomplete 自動補全下拉
+            wordInput.addEventListener("input", (e) => {
+                const val = e.target.value.trim().toLowerCase();
+                const dropdown = document.getElementById("autocompleteDropdown");
+                if (!val) { dropdown.classList.add("hidden"); return; }
+
+                const matches = ALL_UNIQUE_WORDS.filter(w => w.includes(val)).slice(0, 8);
+                if (matches.length === 0) { dropdown.classList.add("hidden"); return; }
+
+                dropdown.innerHTML = matches.map(m => `
+                    <div class="px-3 py-2 hover:bg-slate-800 text-slate-200 text-xs cursor-pointer autocomplete-item" data-word="${m}">
+                        ${m}
+                    </div>
+                `).join("");
+                dropdown.classList.remove("hidden");
+
+                document.querySelectorAll(".autocomplete-item").forEach(item => {
+                    item.addEventListener("click", () => {
+                        handleAddWord(item.getAttribute("data-word"));
+                        dropdown.classList.add("hidden");
+                    });
+                });
+            });
+        }
+
+        function handleAddWord(word) {
+            const cleanWord = word.trim().toLowerCase();
+            if (cleanWord && !activeWords.includes(cleanWord)) {
+                activeWords.push(cleanWord);
+                document.getElementById("wordInput").value = "";
+                renderWordTags();
+                updateDashboard();
+            }
+        }
+
+        function removeWord(word) {
+            activeWords = activeWords.filter(w => w !== word);
+            renderWordTags();
+            updateDashboard();
+        }
+
+        function renderWordTags() {
+            const container = document.getElementById("wordTagsContainer");
+            container.innerHTML = activeWords.map((word, index) => {
+                const color = COLOR_PALETTE[index % COLOR_PALETTE.length].border;
+                return `
+                    <span class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 border text-slate-100 shadow-sm" style="border-color: ${color}">
+                        <span class="w-2 h-2 rounded-full me-2" style="background-color: ${color}"></span>
+                        ${word}
+                        <button onclick="removeWord('${word}')" class="ms-2 text-slate-400 hover:text-red-400 focus:outline-none">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </span>
+                `;
+            }).join("");
+        }
+
+        function updateDashboard() {
+            let filteredData = POSTMED_DATABASE.filter(item => {
+                const matchesWord = activeWords.includes(item.word.toLowerCase());
+                const matchesSchool = selectedSchool === "ALL" || item.school.includes(selectedSchool);
+                return matchesWord && matchesSchool;
+            });
+
+            const validYears = POSTMED_DATABASE.map(item => item.year).filter(y => y > 0);
+            const allYears = Array.from(new Set(validYears)).sort((a, b) => a - b);
+            const yearLabels = allYears.map(y => `${y} 學年`);
+
+            const datasets = activeWords.map((word, idx) => {
+                const color = COLOR_PALETTE[idx % COLOR_PALETTE.length];
+                const dataCounts = allYears.map(year => {
+                    return filteredData.filter(d => d.word.toLowerCase() === word && d.year === year).length;
+                });
+
+                return {
+                    label: word,
+                    data: dataCounts,
+                    borderColor: color.border,
+                    backgroundColor: color.bg,
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: true,
+                    pointBackgroundColor: color.border,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                };
+            });
+
+            trendsChart.data.labels = yearLabels;
+            trendsChart.data.datasets = datasets;
+            trendsChart.update();
+
+            renderSchoolStats(filteredData);
+            updateContextSelectOptions();
+        }
+
+        function renderSchoolStats(filteredData) {
+            const container = document.getElementById("schoolStatsContainer");
+            const schoolCounts = {};
+
+            filteredData.forEach(d => {
+                schoolCounts[d.school] = (schoolCounts[d.school] || 0) + 1;
+            });
+
+            const total = filteredData.length;
+            document.getElementById("activeWordCountDisplay").innerText = `Sheet 命中：${total} 筆紀錄`;
+
+            if (total === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-500 py-4 text-center">無符合條件的試題數據</p>`;
+                return;
+            }
+
+            container.innerHTML = Object.entries(schoolCounts).map(([school, count]) => {
+                const percentage = Math.round((count / total) * 100);
+                return `
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-300 font-medium">${school}</span>
+                            <span class="text-indigo-400 font-semibold">${count} 次 (${percentage}%)</span>
+                        </div>
+                        <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+                            <div class="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-500" style="width: ${percentage}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+        }
+
+        function updateContextSelectOptions() {
+            const select = document.getElementById("contextWordSelect");
+            select.innerHTML = activeWords.map(w => `<option value="${w}">${w}</option>`).join("");
+
+            if (activeWords.length > 0) {
+                renderContextViewer(activeWords[0]);
+            } else {
+                document.getElementById("contextList").innerHTML = `<p class="text-xs text-slate-500 py-8 text-center">請加入至少一個單字進行調閱</p>`;
+            }
+        }
+
+        function renderContextViewer(targetWord, targetYear = null) {
+            const container = document.getElementById("contextList");
+            let matches = POSTMED_DATABASE.filter(item => {
+                const isWordMatch = item.word.toLowerCase() === targetWord.toLowerCase();
+                const isSchoolMatch = selectedSchool === "ALL" || item.school.includes(selectedSchool);
+                const isYearMatch = targetYear ? item.year === parseInt(targetYear) : true;
+                return isWordMatch && isSchoolMatch && isYearMatch;
+            });
+
+            if (matches.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 py-6 text-center">在目前篩選條件下無考題上下文記錄</p>`;
+                return;
+            }
+
+            container.innerHTML = matches.map(item => {
+                const regex = new RegExp(`(${item.word})`, 'gi');
+                const highlightedContext = item.context.replace(regex, `<span class="highlight-word">$1</span>`);
+
+                return `
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-lg hover:border-slate-700 transition space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2.5 py-1 bg-indigo-950 text-indigo-300 border border-indigo-800/60 rounded-md text-xs font-bold">
+                                    ${item.year ? item.year + ' 學年度' : '年份未標註'}
+                                </span>
+                                <span class="px-2.5 py-1 bg-purple-950 text-purple-300 border border-purple-800/60 rounded-md text-xs font-medium">
+                                    ${item.school}
+                                </span>
+                            </div>
+                            <span class="text-xs text-slate-500 font-mono">Word: <strong class="text-yellow-400">${item.word}</strong></span>
+                        </div>
+                        <div class="text-sm text-slate-200 font-sans leading-relaxed pt-1">
+                            ${highlightedContext}
+                        </div>
+                    </div>
+                `;
+            }).join("");
+        }
+
+        function filterContextByYear(yearLabel) {
+            const year = yearLabel.replace(" 學年", "");
+            const select = document.getElementById("contextWordSelect");
+            renderContextViewer(select.value, year);
+        }
+    </script>
+</body>
+</html>
