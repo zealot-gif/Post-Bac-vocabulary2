@@ -173,71 +173,71 @@
 
     <!-- 腳本區域：直接讀取 Google Sheet 串接 API -->
     <script>
-        // 設定您的 Google Sheet 公開 CSV 轉譯網址
-        // Sheet ID: 1wmdw3pTM9egr-Vt3feE_bO32Yi60GktB_bwGX7_kKvw, GID: 1424705553
-        const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS_SHEET_CSV_LINK/pub?gid=1424705553&single=true&output=csv";
-        
-        // 備用直連抓取網址 (Google Direct Export)
-        const DIRECT_CSV_URL = "https://docs.google.com/spreadsheets/d/1wmdw3pTM9egr-Vt3feE_bO32Yi60GktB_bwGX7_kKvw/gviz/tq?tqx=out:csv&gid=1424705553";
+        // Google Sheet 直接抓取 JSON API 網址 (無需金鑰且不被 CORS 擋下)
+const SHEET_ID = '1wmdw3pTM9egr-Vt3feE_bO32Yi60GktB_bwGX7_kKvw';
+const GID = '1424705553';
+const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&tq&gid=${GID}`;
 
-        let POSTMED_DATABASE = [];
-        let ALL_UNIQUE_WORDS = [];
-        let activeWords = ["detrimental", "deprive"];
-        let selectedSchool = "ALL";
-        let trendsChart = null;
+let POSTMED_DATABASE = [];
+let ALL_UNIQUE_WORDS = [];
+let activeWords = ["deprive", "deport", "infertility"];
+let selectedSchool = "ALL";
+let trendsChart = null;
 
-        const COLOR_PALETTE = [
-            { border: '#818cf8', bg: 'rgba(129, 140, 248, 0.2)' },
-            { border: '#c084fc', bg: 'rgba(192, 132, 252, 0.2)' },
-            { border: '#f472b6', bg: 'rgba(244, 114, 182, 0.2)' },
-            { border: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)' },
-            { border: '#facc15', bg: 'rgba(250, 204, 21, 0.2)' },
-            { border: '#34d399', bg: 'rgba(52, 211, 153, 0.2)' }
-        ];
+const COLOR_PALETTE = [
+    { border: '#818cf8', bg: 'rgba(129, 140, 248, 0.2)' },
+    { border: '#c084fc', bg: 'rgba(192, 132, 252, 0.2)' },
+    { border: '#f472b6', bg: 'rgba(244, 114, 182, 0.2)' },
+    { border: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)' },
+    { border: '#facc15', bg: 'rgba(250, 204, 21, 0.2)' },
+    { border: '#34d399', bg: 'rgba(52, 211, 153, 0.2)' }
+];
 
-        document.addEventListener("DOMContentLoaded", () => {
-            initChart();
-            setupEventListeners();
-            fetchGoogleSheetData();
-        });
+document.addEventListener("DOMContentLoaded", () => {
+    initChart();
+    setupEventListeners();
+    fetchGoogleSheetData();
+});
 
-        // 讀取 Google Sheet 資料 (使用 PapaParse 解析)
-        function fetchGoogleSheetData() {
-            document.getElementById("activeWordCountDisplay").innerText = "從 Google Sheet 載入中...";
+// 使用 Google GViz API 正確載入與解析 Google Sheet 資料
+function fetchGoogleSheetData() {
+    document.getElementById("activeWordCountDisplay").innerText = "從 Google Sheet 載入中...";
+
+    fetch(GVIZ_URL)
+        .then(res => res.text())
+        .then(rep => {
+            // 清理 Google 回傳的 google.visualization.Query.setResponse() 包裝
+            const jsonString = rep.substring(47, rep.length - 2);
+            const data = JSON.parse(jsonString);
             
-            Papa.parse(DIRECT_CSV_URL, {
-                download: true,
-                header: false,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    const rows = results.data;
-                    POSTMED_DATABASE = [];
+            POSTMED_DATABASE = [];
+            const rows = data.table.rows;
 
-                    // 跳過標頭列 (Col A: 單字, Col B: 年份, Col C: 學校, Col D: 上下文)
-                    for (let i = 1; i < rows.length; i++) {
-                        const row = rows[i];
-                        if (row.length >= 4 && row[0]) {
-                            POSTMED_DATABASE.push({
-                                word: row[0].trim(),
-                                year: parseInt(row[1]) || 0,
-                                school: row[2] ? row[2].trim() : "其他",
-                                context: row[3] ? row[3].trim() : ""
-                            });
-                        }
-                    }
-
-                    // 生成獨一無二單字列表
-                    ALL_UNIQUE_WORDS = Array.from(new Set(POSTMED_DATABASE.map(item => item.word.toLowerCase()))).sort();
-                    
-                    renderWordTags();
-                    updateDashboard();
-                },
-                error: function(err) {
-                    console.error("Google Sheet 載入失敗:", err);
-                    document.getElementById("activeWordCountDisplay").innerText = "Sheet 載入失敗，請確認共用權限";
+            rows.forEach(row => {
+                const c = row.c;
+                if (c && c[0] && c[0].v) {
+                    POSTMED_DATABASE.push({
+                        word: String(c[0].v).trim(),
+                        year: c[1] && c[1].v ? parseInt(c[1].v) || 0 : 0,
+                        school: c[2] && c[2].v ? String(c[2].v).trim() : "其他",
+                        context: c[3] && c[3].v ? String(c[3].v).trim() : ""
+                    });
                 }
             });
-        }
+
+            // 生成獨一無二單字建議清單
+            ALL_UNIQUE_WORDS = Array.from(new Set(POSTMED_DATABASE.map(item => item.word.toLowerCase()))).sort();
+
+            renderWordTags();
+            updateDashboard();
+        })
+        .catch(err => {
+            console.error("Google Sheet 讀取失敗:", err);
+            document.getElementById("activeWordCountDisplay").innerText = "載入失敗，請確認試算表共用與發布權限";
+        });
+}
+
+// （底下的 initChart, updateDashboard, renderContextViewer 等其餘函數維持原樣即可）
 
         // 初始化 Chart.js
         function initChart() {
