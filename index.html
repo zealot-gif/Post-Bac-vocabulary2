@@ -105,13 +105,13 @@
                 </button>
             </div>
 
-            <!-- 熱門高頻單字預設按鈕 -->
-            <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                <span class="text-slate-500 font-medium"><i class="fa-solid fa-bolt text-yellow-400 me-1"></i>快捷試算表單字：</span>
-                <button class="preset-tag px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700/60 transition" data-word="detrimental">detrimental</button>
-                <button class="preset-tag px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700/60 transition" data-word="deprive">deprive</button>
-                <button class="preset-tag px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700/60 transition" data-word="detect">detect</button>
-                <button class="preset-tag px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700/60 transition" data-word="deviate">deviate</button>
+           <!-- 快捷單字按鈕同步更新 -->
+           <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+               <span class="text-slate-500 font-medium"><i class="fa-solid fa-bolt text-yellow-400 me-1"></i>快捷試算表單字：</span>
+               <button class="preset-tag px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700/60 transition" data-word="affluent">affluent</button>
+               <button class="preset-tag px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700/60 transition" data-word="benign">benign</button>
+               <button class="preset-tag px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700/60 transition" data-word="scrutinize">scrutinize</button>
+               <button class="preset-tag px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700/60 transition" data-word="adamant">adamant</button>
             </div>
         </section>
 
@@ -182,17 +182,17 @@ const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx
 
 let POSTMED_DATABASE = [];
 let ALL_UNIQUE_WORDS = [];
-let activeWords = ["deprive", "deport", "infertility"];
+let activeWords = ["affluent", "benign", "scrutinize"];
 let selectedSchool = "ALL";
 let trendsChart = null;
 
 const COLOR_PALETTE = [
-    { border: '#818cf8', bg: 'rgba(129, 140, 248, 0.2)' },
-    { border: '#c084fc', bg: 'rgba(192, 132, 252, 0.2)' },
-    { border: '#f472b6', bg: 'rgba(244, 114, 182, 0.2)' },
-    { border: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)' },
-    { border: '#facc15', bg: 'rgba(250, 204, 21, 0.2)' },
-    { border: '#34d399', bg: 'rgba(52, 211, 153, 0.2)' }
+    { border: '#38bdf8', bg: 'rgba(56, 189, 248, 0.25)' },  // 藍色 (Sky Blue)
+    { border: '#c084fc', bg: 'rgba(192, 132, 252, 0.25)' }, // 紫色 (Bright Purple)
+    { border: '#f43f5e', bg: 'rgba(244, 63, 94, 0.25)' },   // 亮紅/螢光粉 (Rose Red)
+    { border: '#eab308', bg: 'rgba(234, 179, 8, 0.25)' },   // 鮮黃 (Yellow)
+    { border: '#10b981', bg: 'rgba(16, 185, 129, 0.25)' },  // 鮮綠 (Emerald)
+    { border: '#f97316', bg: 'rgba(249, 115, 22, 0.25)' }   // 橘色 (Orange)
 ];
 
 document.addEventListener("DOMContentLoaded", () => {
