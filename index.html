@@ -91,6 +91,22 @@
             </div>
 
             <!-- 單字 Tag 輸入框 -->
+            <!-- 歷年最高頻率單字快捷鍵 -->
+<div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400 border-t border-slate-800/80 pt-3">
+    <span class="text-slate-400 font-semibold"><i class="fa-solid fa-crown text-amber-400 me-1"></i>歷年聲量排行：</span>
+    <button id="top1WordBtn" class="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-md border border-amber-500/40 transition flex items-center gap-1">
+        <i class="fa-solid fa-trophy text-amber-400"></i> 最高頻：<span id="top1WordLabel">載入中...</span>
+    </button>
+    <button id="top2WordBtn" class="px-2.5 py-1 bg-slate-300/10 hover:bg-slate-300/20 text-slate-200 rounded-md border border-slate-400/40 transition flex items-center gap-1">
+        <i class="fa-solid fa-medal text-slate-300"></i> 次高頻：<span id="top2WordLabel">載入中...</span>
+    </button>
+    <button id="top3WordBtn" class="px-2.5 py-1 bg-amber-700/10 hover:bg-amber-700/20 text-amber-400 rounded-md border border-amber-600/40 transition flex items-center gap-1">
+        <i class="fa-solid fa-award text-amber-600"></i> 第 3 高頻：<span id="top3WordLabel">載入中...</span>
+    </button>
+    <button id="loadTop3Btn" class="px-3 py-1 bg-indigo-600/80 hover:bg-indigo-500 text-white rounded-md transition font-medium ms-auto">
+        <i class="fa-solid fa-layer-group me-1"></i> 一鍵載入前三高頻單字比較
+    </button>
+</div>
             <div class="flex flex-wrap items-center gap-2 bg-slate-950/80 border border-slate-800 rounded-xl p-3 focus-within:border-indigo-500 transition">
                 <div id="wordTagsContainer" class="flex flex-wrap gap-2"></div>
 
@@ -175,6 +191,69 @@
 
     <!-- 腳本區域：直接讀取 Google Sheet 串接 API -->
     <script>
+// 全局儲存歷年頻率排名前三名的單字
+let topWords = [];
+
+// 計算全資料庫中出現頻率最高的單字 (在 fetchGoogleSheetData 載入完成後自動執行)
+function calculateTopFrequencyWords() {
+    const wordCounts = {};
+
+    // 統計每個單字在資料庫中的出現總次數
+    POSTMED_DATABASE.forEach(item => {
+        const w = item.word.toLowerCase();
+        wordCounts[w] = (wordCounts[w] || 0) + 1;
+    });
+
+    // 依照出現頻率降冪排序
+    const sortedWords = Object.entries(wordCounts)
+        .sort((a, b) => b[1] - a[1]); // [ [word, count], ... ]
+
+    if (sortedWords.length > 0) {
+        topWords = sortedWords.slice(0, 3).map(item => ({ word: item[0], count: item[1] }));
+
+        // 更新 UI 上的標籤與出現次數
+        if (topWords[0]) document.getElementById("top1WordLabel").innerText = `${topWords[0].word} (${topWords[0].count}次)`;
+        if (topWords[1]) document.getElementById("top2WordLabel").innerText = `${topWords[1].word} (${topWords[1].count}次)`;
+        if (topWords[2]) document.getElementById("top3WordLabel").innerText = `${topWords[2].word} (${topWords[2].count}次)`;
+    }
+}
+
+// 註冊高頻單字按鈕的點擊事件
+function setupTopWordEventListeners() {
+    // 點擊最高頻單字
+    document.getElementById("top1WordBtn").addEventListener("click", () => {
+        if (topWords[0]) addSingleWordToCompare(topWords[0].word);
+    });
+
+    // 點擊次高頻單字
+    document.getElementById("top2WordBtn").addEventListener("click", () => {
+        if (topWords[1]) addSingleWordToCompare(topWords[1].word);
+    });
+
+    // 點擊第 3 高頻單字
+    document.getElementById("top3WordBtn").addEventListener("click", () => {
+        if (topWords[2]) addSingleWordToCompare(topWords[2].word);
+    });
+
+    // 一鍵載入前三名比較
+    document.getElementById("loadTop3Btn").addEventListener("click", () => {
+        if (topWords.length > 0) {
+            activeWords = topWords.map(t => t.word);
+            renderWordTags();
+            updateDashboard();
+        }
+    });
+}
+
+function addSingleWordToCompare(word) {
+    if (!activeWords.includes(word)) {
+        activeWords.push(word);
+        renderWordTags();
+        updateDashboard();
+    }
+}
+
+        
         // Google Sheet 直接抓取 JSON API 網址 (無需金鑰且不被 CORS 擋下)
 const SHEET_ID = '1wmdw3pTM9egr-Vt3feE_bO32Yi60GktB_bwGX7_kKvw';
 const GID = '1424705553';
@@ -211,7 +290,7 @@ function fetchGoogleSheetData() {
             // 清理 Google 回傳的 google.visualization.Query.setResponse() 包裝
             const jsonString = rep.substring(47, rep.length - 2);
             const data = JSON.parse(jsonString);
-            
+
             POSTMED_DATABASE = [];
             const rows = data.table.rows;
 
@@ -229,6 +308,10 @@ function fetchGoogleSheetData() {
 
             // 生成獨一無二單字建議清單
             ALL_UNIQUE_WORDS = Array.from(new Set(POSTMED_DATABASE.map(item => item.word.toLowerCase()))).sort();
+
+            // === 加在這裡：計算最高頻單字與綁定點擊事件 ===
+            calculateTopFrequencyWords();
+            setupTopWordEventListeners();
 
             renderWordTags();
             updateDashboard();
